@@ -317,27 +317,47 @@ namespace LightvnTools
         /// Do XOR operation on the <paramref name="filePath"/>.
         /// </summary>
         /// <param name="filePath"></param>
-        static void XOR(string filePath, string? outputFilePath = null)
-        {
-            try
-            {
-                byte[] buffer;
-                int bufferLength;
+      static void XOR(string filePath, string? outputFilePath = null)
+{
+    int retries = 10;
+    int delay = 200; // ms
 
-                using FileStream inputStream = File.OpenRead(filePath);
+    for (int attempt = 0; attempt < retries; attempt++)
+    {
+        try
+        {
+            byte[] buffer;
+            int bufferLength;
+
+            using (FileStream inputStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
                 buffer = new byte[bufferLength = (int)inputStream.Length];
                 inputStream.Read(buffer, 0, bufferLength);
-
-                buffer = XOR(buffer);
-
-                using FileStream outputStream = File.OpenWrite(outputFilePath ?? filePath);
-                outputStream.Write(buffer, 0, bufferLength);
             }
-            catch (Exception ex)
+
+            buffer = XOR(buffer);
+
+            using (FileStream outputStream = File.Open(outputFilePath ?? filePath, FileMode.Open, FileAccess.Write, FileShare.None))
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                outputStream.Write(buffer, 0, bufferLength);
+                outputStream.SetLength(bufferLength); // In case new buffer is smaller
             }
+            return; // Success
         }
+        catch (IOException ex)
+        {
+            if (attempt == retries - 1)
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            else
+                Thread.Sleep(delay);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            return;
+        }
+    }
+}
 
         /// <summary>
         /// Get all files from a folder.
